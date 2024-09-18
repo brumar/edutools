@@ -1,8 +1,9 @@
 # README
 
 Random educative tools for my kids.
-
-
+Will never be production ready.
+License: 
+CC-BYE: steal it and don't do attribution.
 
 
 # Getting Started with Create React App
