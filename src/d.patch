@@ -1,0 +1,101 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 1234567..abcdef0 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,7 +1,7 @@
+-import React, { useState, useEffect, useCallback } from 'react';
+-import { Box, Button, Typography, ThemeProvider, createTheme } from '@mui/material';
+-import { VolumeUp as VolumeUpIcon } from '@mui/icons-material';
++import React, { useState, useEffect, useCallback, useRef } from 'react';
++import { Box, Button, Typography, ThemeProvider, createTheme, CircularProgress } from '@mui/material';
++import { VolumeUp as VolumeUpIcon, VolumeOff as VolumeOffIcon } from '@mui/icons-material';
+ import './App.css';
+ 
+ import audio1 from './assets/audio/preamble.wav';
+@@ -34,7 +34,10 @@ const App: React.FC = () => {
+   const [currentCard, setCurrentCard] = useState<FlashCard | null>(null);
+   const [showAnswer, setShowAnswer] = useState<boolean>(false);
+   const [recentCards, setRecentCards] = useState<number[]>([]);
+-  const [audio] = useState<HTMLAudioElement>(new Audio());
++  const audioRef = useRef<HTMLAudioElement | null>(null);
++  const [isAudioLoading, setIsAudioLoading] = useState<boolean>(false);
++  const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
++  const [audioError, setAudioError] = useState<string | null>(null);
+ 
+   const selectNextCard = useCallback(() => {
+     const availableCards = flashcardData.filter(card => !recentCards.includes(card.id));
+@@ -62,9 +65,30 @@ const App: React.FC = () => {
+ 
+   useEffect(() => {
+     if (currentCard) {
+-      audio.src = currentCard.audioPath;
+-      audio.play().catch(error => console.error('Error playing audio:', error));
++      setIsAudioLoading(true);
++      setAudioError(null);
++      if (audioRef.current) {
++        audioRef.current.pause();
++        audioRef.current.currentTime = 0;
++      }
++      audioRef.current = new Audio(currentCard.audioPath);
++      audioRef.current.addEventListener('canplaythrough', () => setIsAudioLoading(false));
++      audioRef.current.addEventListener('error', () => {
++        setIsAudioLoading(false);
++        setAudioError('Failed to load audio');
++      });
++      audioRef.current.addEventListener('ended', () => setIsAudioPlaying(false));
+     }
+-  }, [currentCard, audio]);
++
++    return () => {
++      if (audioRef.current) {
++        audioRef.current.pause();
++        audioRef.current.removeEventListener('canplaythrough', () => setIsAudioLoading(false));
++        audioRef.current.removeEventListener('error', () => {
++          setIsAudioLoading(false);
++          setAudioError('Failed to load audio');
++        });
++        audioRef.current.removeEventListener('ended', () => setIsAudioPlaying(false));
++        audioRef.current = null;
++      }
++    };
++  }, [currentCard]);
++
++  const handlePlayAudio = () => {
++    if (audioRef.current && !isAudioLoading) {
++      audioRef.current.play()
++        .then(() => setIsAudioPlaying(true))
++        .catch(error => {
++          console.error('Error playing audio:', error);
++          setAudioError('Failed to play audio');
++        });
++    }
++  };
+ 
+   const handleShowAnswer = () => {
+     setShowAnswer(true);
+@@ -118,11 +142,21 @@ const App: React.FC = () => {
+           }}
+         >
+           <Button
+-            onClick={() => audio.play()}
++            onClick={handlePlayAudio}
++            disabled={isAudioLoading || !!audioError}
+             sx={{ color: 'white', fontSize: '2rem' }}
+           >
+-            <VolumeUpIcon sx={{ fontSize: '3rem' }} />
++            {isAudioLoading ? (
++              <CircularProgress size={24} color="inherit" />
++            ) : isAudioPlaying ? (
++              <VolumeUpIcon sx={{ fontSize: '3rem' }} />
++            ) : (
++              <VolumeOffIcon sx={{ fontSize: '3rem' }} />
++            )}
+           </Button>
++          {audioError && (
++            <Typography color="error" variant="caption">
++              {audioError}
++            </Typography>
++          )}
+           {showAnswer && (
+             <Typography variant="h4" sx={{ color: 'white', marginTop: 2 }}>
+               {currentCard.answer}
